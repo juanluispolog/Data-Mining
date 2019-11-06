@@ -1,0 +1,470 @@
+---
+title: "CS 422"
+output: 
+  html_notebook:
+    toc: yes
+    toc_float: yes
+author: Juan Luis Polo, Student, 
+        Illinois Institute of Technology
+---
+
+## Problem 2.1: Decision tree classification
+
+```{r}
+library(rpart)
+library(caret)
+library(rpart.plot)
+library(ROCR)
+library(pROC)
+
+setwd("/Users/juanluispolog/Google Drive/CS422/homework2")
+adult.train <- read.csv("adult-train.csv")
+adult.test <- read.csv("adult-test.csv")
+
+```
+
+
+### Part A
+
+Cleaning the *adult.train* dataframe. Final result 30161 rows.
+```{r}
+str(adult.train)
+
+adult.train.new <- adult.train[-c(which(adult.train$workclass == '?'), 
+                           which(adult.train$occupation == '?'), 
+                           which(adult.train$native_country == '?')), ]
+
+```
+
+Cleaning the *adult.test* dataframe. Final result 15060 rows.
+```{r}
+str(adult.test)
+
+adult.test.new <- adult.test[-c(which(adult.test$workclass == '?'), 
+                           which(adult.test$occupation == '?'), 
+                           which(adult.test$native_country == '?')), ]
+
+```
+
+### Part B - I
+
+Creating the decision tree:
+```{r}
+adult.model <- rpart(income ~ ., method='class', data=adult.train.new)
+```
+
+### Part B - II
+
+Plotting the decision tree:
+```{r}
+rpart.plot(adult.model, extra = 104, type = 4, fallen.leaves = T, main = "Decision Tree on Income")
+```
+
+### Part B - III
+
+Top 3 predictors of the model:
+
+  + relationship
+  + education
+  + capital-gain
+
+### Part B - IV
+
+The first split of the decision tree is done in:
+```{r}
+rownames(adult.model$splits)[1]
+```
+
+As can be observed in the decision tree (part b-II), the predicted class of the first node is *"<=50K"*. In addition, the distribution of observation between *<=50K* and *>50* is **0.75** and **0.25**.
+
+
+### Part C - I
+
+Prediction for *df.test*
+```{r}
+adult.pred <- predict(adult.model, adult.test.new, type = "class")
+head(adult.pred)
+# Create the cofussion matrix automatically
+confusionMatrix(adult.pred, adult.test.new$income)
+```
+
+### Part C - I
+The **Balanced Accuracy** of this model is: 0.726.
+
+### Part C - II
+The **Balanced Error Rate** of this model is (1 - Balanced Error Rate): 0.274.
+
+### Part C - III 
+The **sensitivity** is: 0.948.
+The **specificity** is: 0.503.
+There is a great difference between sensitivity and specificity due to the imbalanced training dataset.
+
+### Part C - IV
+The following code plots the ROC curve and calculates the Area Under the Curve.
+
+```{r}
+pred.rocr <- predict(adult.model, newdata=adult.test.new, type="prob")[,2]
+f.pred <- prediction(pred.rocr, adult.test.new$income)
+f.perf <- performance(f.pred, "tpr", "fpr")
+plot(f.perf, colorize=T, lwd=3)
+abline(0,1)
+auc <- performance(f.pred, measure = "auc")
+cat(paste("The area under curve (AUC) for this model is ", round(auc@y.values[[1]], 3)))
+```
+The area under thr ROC curve is large. Moreover, the ROC curve is close to the desired zone (up-left corner). That means that the model fit quite good the data. 
+
+### Part D - I
+
+The train dataset in clearly imbalanced.
+```{r}
+cat("Number of values with income <=50K: ", sum(adult.test.new$income == "<=50K"), "\n", fill= T)
+cat("Number of values with income >50K: ",sum(adult.test.new$income == ">50K"), "\n", fill= T)
+```
+
+### Part D - II
+
+Creating a new train dataset with a balanced class income by taking the same number of rows per income class. As the class *">50K"* has a lower number of rows, we will take this number of rows from the *"<=50K"* class
+```{r}
+n <- sum(adult.train.new$income == ">50K")
+
+more50 <- which(adult.train.new$income == ">50K")
+less50 <- which(adult.train.new$income == "<=50K")
+
+sampleLess50 <- sample(less50, n)
+
+adult.train.new2 <- adult.train.new[c(more50, sampleLess50),]
+```
+
+### Part D - III
+
+Training a new model for the new train dataset.
+
+```{r}
+adult.model2 <- rpart(income ~ ., method='class', data=adult.train.new2)
+```
+
+Fitting the model to the test dataset and calculating the cofussion matrix for these results.
+
+```{r}
+# The test dataset does not change
+adult.pred2 <- predict(adult.model2, adult.test.new, type = "class")
+# Create the cofussion matrix automatically
+confusionMatrix(adult.pred2, adult.test.new$income)
+```
+
+### Part D - III -I)
+The **Balanced Accuracy** of this model is: 0.804.
+
+### Part D - III -II)
+The **Balanced Error Rate** of this model is (1 - Balanced Error Rate): 0.196.
+
+### Part D - III -III)
+The **sensitivity** is: 0.803.
+The **specificity** is: 0.806.
+
+### Part D - III -IV)
+The following code plots the ROC curve and calculates the Area Under the Curve.
+```{r}
+pred.rocr <- predict(adult.model2, newdata=adult.test.new, type="prob")[,2]
+f.pred <- prediction(pred.rocr, adult.test.new$income)
+f.perf <- performance(f.pred, "tpr", "fpr")
+plot(f.perf, colorize=T, lwd=3)
+abline(0,1)
+auc <- performance(f.pred, measure = "auc")
+cat(paste("The area under curve (AUC) for this model is ", round(auc@y.values[[1]], 3)))
+```
+
+The area under the curve is now slightly large than for the previous model (imbalanced model).
+
+
+### Part E
+
+Parameter values are in line with expectations:
+
+  + Balanced Accuracy: Balanced accuracy is clearly higher for the balanced model.
+  + Sensitivity: Higher for the imbalanced model.
+  + Specificity: Higher for the balanced model.
+  + Positive predictive value: Higher for the balanced model.
+  + AUC: Slightly higher for balanced model.
+  
+
+
+
+## Problem 2: Random Forest
+
+```{r}
+# Using randomForest library for this problem
+library(randomForest)
+
+set.seed(1122)
+```
+
+
+### Part A
+Introducing a random forest on the training dataset:
+```{r}
+rf.model <- randomForest(income ~ ., data = adult.train.new)
+```
+
+Fitting the test dataset to the random forest model and calculating the confusion matrix of the model:
+```{r}
+rf.pred <- predict(rf.model, adult.test.new, type="class")
+confusionMatrix(rf.pred, adult.test.new$income)
+```
+
+Considering the parameters balanced accuracy, sensitivity and specificity, we can conclude that the model is imbalanced.
+
+
+### Part B
+
+Grid search changing hyper-parameters:
+```{r}
+ntree.values <- c(100, 750)
+mtry.values <- c(2, 5, 7)
+
+rf.grid.models <- list()
+rf.grid.predictions <- list()
+rf.grid.OOB <- list()
+rf.grid.OOB.means <- c()
+rf.grid.OOB.min <- c()
+rf.grid.CM <- list()
+
+n <- 1
+for (i in ntree.values) {
+  for (j in mtry.values) {
+    rf.grid.model <- randomForest(income ~ ., data = adult.test.new, mtry = j, ntree = i)
+    rf.grid.prediction <- predict(rf.grid.model, adult.test.new, type ="class")
+    
+    rf.grid.models[[n]] <- rf.grid.model
+    rf.grid.predictions[[n]] <- rf.grid.prediction
+    
+    rf.grid.OOB[[n]] <- rf.grid.model$err.rate[,1]
+    rf.grid.OOB.means[n] <- mean(rf.grid.OOB[[n]])
+    rf.grid.OOB.min[n] <- min(rf.grid.OOB[[n]])
+    rf.grid.CM[[n]] <- confusionMatrix(rf.grid.prediction, adult.test.new$income)
+    
+    n <- n+1
+  }
+}
+
+```
+
+
+### Part C
+
+Examining the sensitivity, specificity and balanced accuracy model by model.
+```{r}
+for (i in 1:6) {
+  cat("Model #",i,", (ntree=",rf.grid.models[[i]]$ntree,
+      ", mtry=", rf.grid.models[[i]]$mtry,")", "\n", fill = T)
+  cat("Sensitivity: ", rf.grid.CM[[i]]$byClass["Sensitivity"], "\n", fill = T)
+  cat("Specificity: ", rf.grid.CM[[i]]$byClass["Specificity"], "\n", fill = T)
+  cat("Balanced Accuracy: ", rf.grid.CM[[i]]$byClass["Balanced Accuracy"], "\n", "\n", fill = T)
+}
+```
+```{r}
+rf.models.Sens <- c()
+rf.models.Spec <- c()
+rf.models.BA <- c()
+for (i in 1:6) {
+  rf.models.Sens[i] <- rf.grid.CM[[i]]$byClass["Sensitivity"]
+  rf.models.Spec[i] <- rf.grid.CM[[i]]$byClass["Specificity"]
+  rf.models.BA[i] <- rf.grid.CM[[i]]$byClass["Balanced Accuracy"]
+}
+
+cat("Max Sensitivity: ", max(rf.models.Sens), "\n", fill = T)
+cat("Max Specificity: ", max(rf.models.Spec), "\n", fill = T)
+cat("Max Balanced Accuracy: ", max(rf.models.BA), "\n", fill = T)
+```
+
+
+As it can be observed above, the model with maximum Sensitivity, Specificity and Balanced Accuracy is model #6.
+Thus, taking every parameter into consideration, it could be stated that the **best model** is **model #6**.
+
+
+### Part D
+
+```{r}
+rf.grid.OOB.means
+cat("Minimum mean OOB error: ", min(rf.grid.OOB.means), "\n", fill = T)
+rf.grid.OOB.min
+cat("Minimum OOB error: ", min(rf.grid.OOB.min), "\n", fill = T)
+```
+OOB error can be defined as the mean prediction error of each training sample
+As it can be observed above, **model #4** has the lowest OOB error. Therefore, this model is the best one.
+
+### Part E
+
+In this case, the best model in terms of performance parameters is model #6, whereas, the model with the minimum mean OOB error is model #4.
+
+It should come out the same model. This may be because some of the models are imbalanced and the OOB error results are not adequate.
+
+
+## Problem 3: Perceptron
+
+
+#### Data - 10 observations
+
+As indicated, the perceptron code has been developed for the dataset containing 10 samples. 
+The number of *iterations* has been decided empirically, observing from which iteration the error is zero and the weights are not updated. The value of the *weight update parameter* has been set to 0.5.
+
+```{r}
+data <- read.csv("data-10.csv")
+
+iterations <- 8
+x <- data[, c("bias", "x1", "x2")]
+class <- data[, "label"]
+
+weight <- rep(0, dim(x)[2])
+errors <- rep(0, iterations)
+
+for (j in 1:iterations) {
+    for (i in 1:length(class)) {
+    
+    # Perceptron predicted value:
+    input <- sum(weight[1:length(weight)] * as.numeric(x[i, ])) 
+    if(input < 0) {
+      ypred <- -1
+    } else {
+      ypred <- 1
+    }
+    
+    # Weights update
+    weight.new <- 0.5 * (class[i] - ypred) * as.numeric(x[i, ])
+    weight <- weight + weight.new
+
+    # Error update
+    if ((class[i] - ypred) != 0.0) {
+      errors[j] <- errors[j] + 1
+    }
+
+  }
+}
+
+print(weight)
+
+plot(1:iterations, errors, type="l", lwd=2, col="red", xlab="epoch", ylab="error")
+title("Errors vs epoch - learning rate eta = 0.5")
+
+color <- rep("blue", dim(x)[1])
+color[which(data$label == -1)] <- "green"
+
+plot(data$x1, data$x2, col=color)
+
+# Following instruction plots the perceptron decision boundary:
+# w1 + w2*x1 + w3*x2 = 0
+# x2 = -w1/w3 - (w2/w3)*x1
+abline(-weight[1]/weight[3],-weight[2]/weight[3])
+```
+In this case, the **error** is zero from iteration **#5** onwards.
+
+
+#### Data - 50 observations
+
+```{r}
+data <- read.csv("data-50.csv")
+
+iterations <- 15
+x <- data[, c("bias", "x1", "x2")]
+class <- data[, "label"]
+
+weight <- rep(0, dim(x)[2])
+errors <- rep(0, iterations)
+
+for (j in 1:iterations) {
+    for (i in 1:length(class)) {
+    
+    # Perceptron predicted value:
+    input <- sum(weight[1:length(weight)] * as.numeric(x[i, ])) 
+    if(input < 0) {
+      ypred <- -1
+    } else {
+      ypred <- 1
+    }
+    
+    # Weights update
+    weight.new <- 0.5 * (class[i] - ypred) * as.numeric(x[i, ])
+    weight <- weight + weight.new
+
+    # Error update
+    if ((class[i] - ypred) != 0.0) {
+      errors[j] <- errors[j] + 1
+    }
+
+  }
+}
+
+print(weight)
+
+plot(1:iterations, errors, type="l", lwd=2, col="red", xlab="epoch", ylab="error")
+title("Errors vs epoch - learning rate eta = 0.5")
+
+color <- rep("blue", dim(x)[1])
+color[which(data$label == -1)] <- "green"
+
+plot(data$x1, data$x2, col=color)
+
+# Following instruction plots the perceptron decision boundary:
+# w1 + w2*x1 + w3*x2 = 0
+# x2 = -w1/w3 - (w2/w3)*x1
+abline(-weight[1]/weight[3],-weight[2]/weight[3])
+```
+In this case, the **error** is zero from iteration **#10** onwards.
+
+
+#### Data - 500 observations
+
+```{r}
+data <- read.csv("data-500.csv")
+
+iterations <- 5
+x <- data[, c("bias", "x1", "x2")]
+class <- data[, "label"]
+
+weight <- rep(0, dim(x)[2])
+errors <- rep(0, iterations)
+
+for (j in 1:iterations) {
+    for (i in 1:length(class)) {
+    
+    # Perceptron predicted value:
+    input <- sum(weight[1:length(weight)] * as.numeric(x[i, ])) 
+    if(input < 0) {
+      ypred <- -1
+    } else {
+      ypred <- 1
+    }
+    
+    # Weights update
+    weight.new <- 0.5 * (class[i] - ypred) * as.numeric(x[i, ])
+    weight <- weight + weight.new
+
+    # Error update
+    if ((class[i] - ypred) != 0.0) {
+      errors[j] <- errors[j] + 1
+    }
+
+  }
+}
+
+print(weight)
+
+plot(1:iterations, errors, type="l", lwd=2, col="red", xlab="epoch", ylab="error")
+title("Errors vs epoch - learning rate eta = 0.5")
+
+color <- rep("blue", dim(x)[1])
+color[which(data$label == -1)] <- "green"
+
+plot(data$x1, data$x2, col=color)
+
+# Following instruction plots the perceptron decision boundary:
+# w1 + w2*x1 + w3*x2 = 0
+# x2 = -w1/w3 - (w2/w3)*x1
+abline(-weight[1]/weight[3],-weight[2]/weight[3])
+```
+In this case, the **error** is zero from iteration **#4** onwards.
+
+
+
+
+
