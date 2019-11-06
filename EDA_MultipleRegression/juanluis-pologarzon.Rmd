@@ -1,0 +1,400 @@
+---
+title: "CS 422 - Homework 1"
+output: 
+  html_notebook:
+    toc: yes
+    toc_float: yes
+author: Juan Luis Polo Garzon, Student, 
+        Illinois Institute of Technology
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Programming Problems
+
+## Problem 1
+
+#### Section A
+```{r}
+setwd("/Users/juanluispolog/Google Drive/CS422/homework1")
+college.df <- read.csv("College.csv")
+head(college.df)
+```
+
+#### Section B
+```{r}
+library(dplyr)
+
+Priv <- table(college.df$Private)
+Priv
+
+```
+
+#### Section C
+```{r}
+private <- filter(college.df, Private == "Yes")
+public <- filter(college.df, Private == "No")
+hist(private$PhD, probability = T, xlab = "PhD in Private Schools", 
+     ylab = "Probability", 
+     main="Histogram and Density function of PhD in Private Schools")
+lines(density(private$PhD), col="blue")
+hist(public$PhD, probability = T, xlab = "PhD in Public Schools", ylab = "Probability", 
+     main="Histogram and Density function of PhD in Public Schools")
+lines(density(public$PhD), col="blue")
+```
+In order to be able to valuate more consistently, the summaries of both attributes are calculated:
+```{r}
+summary(private$PhD)
+summary(public$PhD)
+```
+From histograms it could be inferred that there is no significant difference between employed PhDs in private and public universities. However, by adding all the PhDs employed in both types of universities, it is observed that the private university has more PhDs than the public.
+
+
+#### Section D
+
+The following instruction creates the dataframe college.df.grad, where the data is sorted according to the Grad.Rate attribute (from lowest to highest)
+```{r}
+college.df.grad <- arrange(college.df, Grad.Rate)
+```
+The following instructions print the top 5 universities with the minimum graduation rates, and the top 5 with the maximum graduation rates. 
+```{r}
+head(select(college.df.grad, Name, Grad.Rate), n=5)
+tail(select(college.df.grad, Name, Grad.Rate), n=5)
+```
+The top 5 universities with the highest graduation rates are ordered the other way around, from lowest to highest. To reverse it it is possible to use *desc()* fuction:
+```{r}
+head(select(arrange(college.df, desc(Grad.Rate)), Name, Grad.Rate), n=5)
+```
+#### Section E
+##### E - I
+Numerical summary of the variables in the data set *college.df*
+```{r}
+summary(college.df)
+```
+##### E - II
+Scatterplot matrix of the first ten attributes of the data.
+```{r}
+pairs(college.df[,1:10])
+```
+
+
+##### E - III
+
+Side-by-side boxplots for compare which alumni donate more to their colleges, public college or private college students.
+```{r}
+boxplot(college.df$perc.alumni ~ college.df$Private, col=c("lightblue", "lightgreen"), 
+        xlab = "Private (Yes or No)", ylab = "% Donation per alumni",
+        main="Public vs. Private college student donations")
+```
+Both Q1 and IQR in private universities are higher than in public universities. It can be concluded that student donations to **private** universities are higher. It could be verified by calculating the mean value:
+
+```{r}
+mean((filter(college.df, Private == "Yes"))$perc.alumni)
+mean((filter(college.df, Private == "No"))$perc.alumni)
+```
+It is clear that the average donation per student at private universities is much higher than at public universities.
+
+
+##### E - IV
+
+Side-by-side boxplots for compare which type of college employ more PhD's:
+```{r}
+boxplot(college.df$PhD ~ college.df$Private, col=c("orange", "grey"), 
+        xlab = "Private (Yes or No)", ylab = "PhD's",
+        main="Public vs. Private colleges PhD's employed")
+```
+It is observed that the Q3 for the two Boxplots have the same value. However, the private IQR is larger. Therefore, it can be concluded that **private** universities employ more PhD's. It could be verified by calculating the mean value:
+
+```{r}
+mean((filter(college.df, Private == "Yes"))$PhD)
+mean((filter(college.df, Private == "No"))$PhD)
+```
+Public universities employ more PhDs on average than private universities. However, there are more private than public universities, so the number of PhDs in all of the private universities is higher.
+
+##### E - V
+
+In order to create the Elite attribute:
+```{r}
+Elite <- rep("No", nrow(college.df))
+Elite[college.df$Top10perc > 50] <- "Yes"
+Elite <- as.factor(Elite)
+college.df <- data.frame(college.df, Elite)
+summary(college.df$Elite)
+```
+There are **78 universities** which can be considered as *elite colleges*.
+
+##### E - VI
+These are the variables which are going to be displayed:
+
+  + Accept
+  + Enroll
+  + Top10perc
+  + Top25perc
+  + F.Undergrad
+  + Expend
+  
+
+```{r}
+par(mfrow=c(2, 3))
+hist(public$Accept, probability = T, xlab = "Acceptance", ylab = "Probability", 
+     main="Acceptance for all colleges", breaks = 10)
+hist(public$Enroll, probability = T, xlab = "Enrollment", ylab = "Probability", 
+     main="Enrollment for all colleges", breaks = 20)
+hist(public$F.Undergrad, probability = T, xlab = "Number of full-time undergrad students", 
+     ylab = "Probability", 
+     main="Full-time undergrad students", breaks = 15)
+hist(public$Top10perc, probability = T, xlab = "Number of new students in top 10", 
+     ylab = "Probability", 
+     main="% of new students in top 10", breaks = 100)
+hist(public$Top25perc, probability = T, xlab = "Number of new students in top 25", 
+     ylab = "Probability", 
+     main="% of new students in top 25", breaks = 5)
+hist(public$Expend, probability = T, xlab = "Expend per student", ylab = "Probability", 
+     main="Expend per student")
+
+```
+
+##### E - VII
+To find the relationship between elite and private schools:
+
+```{r}
+Priv.Elite <- table(college.df$Private, college.df$Elite) #table with the relations between private and elite colleges
+Priv.Elite
+```
+Therefore, there are **565 private** colleges, from which **65** are **elite** colleges. There are also **212 public** colleges, from which **13** are **elite** universities. In the plot below, it can be appreciated that the percentage of private schools considered elite is higher than that of public schools.
+
+```{r}
+plot(college.df$Private, college.df$Elite, xlab="Private", ylab="Elite")
+```
+From this plot can be concluded that the percentage of private elite colleges is higher than the percentage of public elite colleges.
+
+
+
+## Problem 2
+
+#### Section A
+
+It is needed to remove the *country* variable (name of the country), since is a qualitative variable and it will not be possible to calculate correlations with it.
+
+```{r}
+# Setting the working directory, although the archive goog.csv is in the same location as College.csv from the previous exercise
+setwd("/Users/juanluispolog/Google Drive/CS422/homework1")
+
+google <- read.csv("goog.csv")
+google <- google[,-1]
+```
+#### Section B
+Pairwise correlation plot using *pairs.panels()*:
+```{r}
+library(psych)
+pairs.panels(google)
+title(main = "Covariance between variables")
+
+```
+It is important to highlight that the response variable is *complied* (number of requests Google complied).
+
+##### B - I
+The variable which is more **positive** correlated with the response variable is *requests* (number of requests that Google complied), and it may be due to the more requests, the more requests complied with. Although correlation does not imply causation.
+
+##### B - II
+The variable which is more **negative** correlated with the response variable is *freepress* (free press index), and it may be because the larger the free press index in a country, the lesser the value of *freepress* and the more probable to make a search in Google. Although correlation does not imply causation.
+
+##### B - III
+The highest **positive** correlation (0.90) between two explanatory variables is produced between *internet* (percentage of internet users in the country) and *hdi* (Human Development Index), and it may be due to the more developed a country, the more people will have access to the Internet. Although correlation does not imply causation.
+
+##### B - IV
+The highest **negative** correlation (-0.71) between two explanatory variables is produced between *pop* (population of the country) and *hdi* (Human Development Index), and it may be because population and hdi are inversely related.
+
+
+#### Section C
+The following instrucctions create a multiple linear regression model:
+```{r}
+# Mutiple Linear Regression Model
+model <- lm(complied ~ ., data = google)
+summary(model)
+```
+The low value of the adjusted R-squared is remarkable, which indicates that the model is not very fitted.
+ 
+##### C - I
+Considering the previous summary, the most highly significant explanatory variables is *pop* (population of the country) due to their high t-value.
+
+##### C - II
+The variance could be explained with the adjusted R-square. Since adjusted R-squared is 0.2343, this is the variance.
+
+##### C - III
+As previously commented, the value of adjusted R-square in this model is remarkably low. This means that the model could be improved.
+
+
+#### Section D
+
+The correlation between the factor variable *dem* and the response variable *complied* is calculated below: 
+```{r}
+dem.numeric <- as.numeric(google$dem)
+cor(google$complied, dem.numeric)
+```
+
+
+## Problem 3
+
+Firstly, it is needed to import the nba dataset into a dataframe in R:
+
+```{r}
+nba <- read.csv("nba.csv")
+str(nba)
+
+```
+
+#### Section A
+I have chosen the variable *FG* (field goals) because from my point of view it can be the most correlated with *PTS*. 
+
+```{r}
+simple.model <- lm(PTS ~ FG, data = nba)
+summary(simple.model)
+```
+Given the small p-value of the predictor and the high value of the t-statistic, we can affirm that the *FG* variable has a **great influence** on *PTS.* This was the expected result.
+
+However, it is not verified that *FG* has the highest correlation with *PTS*. The following plot represents the correlations between all **numeric** variables in *nba* dataframe. All the factor variables are not taking into account.
+
+```{r}
+pairs.panels(nba[,8:23])
+title(main = "Covariance between numeric variables")
+```
+As can be seen, the highest correlation between the explanatory variables and the response variable *PTS* is **0.96**, and corresponds to the variable *FG*.
+
+#### Section B
+
+```{r}
+plot(nba$FG, nba$PTS, col = "orange", main = "Simple regression model: FG and PTS", 
+     xlab = "Field Goals", ylab = "Points")
+abline(simple.model, col = "blue")
+```
+
+#### Section C
+Creating the *train* and *test* dataframes:
+```{r}
+set.seed(1122)
+index <- sample(1:nrow(nba), 250)
+train <- nba[index, ]
+test <- nba[-index, ]
+```
+Taking into consideration the above *pairs.panels()* where correlations are shown, these are the selected variables to create a multiple regression linear model:
+
+  + FG
+  + FGA
+  + MIN
+  + FT
+
+The following **regression models** are built with the *train* dataframe.
+```{r}
+multi.model1 <- lm(PTS ~ FG + FGA + MIN + FT, data = train)
+summary(multi.model1)
+```
+
+#### Section D
+
+The summary shows that the variables *FG* and *FT* have very high t-statistic value, as well as very low values of probability of rejection of the null hypothesis. For this reason, there are *** displayed, since these two variables cannot be removed from our model because they have a very high relationship with the response variable *FGA*.
+
+It is also observed that the *MIN* variable has good t-stadistic and probability of rejection of the null hypothesis values, so we will not be able to eliminate it from our model yet.
+However, if we focus on the *FGA* variable, we observe that its statistical values are not good. We can try removing it from our model.
+
+```{r}
+multi.model2 <- lm(PTS ~ FG + MIN + FT, data = train)
+summary(multi.model2)
+```
+It is observed that the t-statistic value improve for the three variables. In addition, it can be seen that the **adjusted R-squared** is practically the same in the two models *(0.9795 vs. 0.9796)*.
+
+Considering the results obtained, it can be stated that the model can be defined with only 3 variables. In addition, by eliminating one variable from the model, it will be less overfitted.
+
+We tried to omit the *MIN* variable in the model:
+```{r}
+multi.model3 <- lm(PTS ~ FG + FT, data = train)
+summary(multi.model3)
+```
+By eliminating the *MIN* variable, adjusted R-squared does not decrease significantly. In addition, t-values of *FG* and *FT* variables are sustantialy higher than *MIN* t-value. Therefore, it is possible to implement the linear regression model with *FG* and *FT* values only.
+
+It is not feasible to eliminate another variable from the model, in this case *FT*, because as observed in the simple linear regression model calculated previously, the adjusted R-square value is lower than in the model with *FG* and *FT*.
+
+
+#### Section E
+The following plot shows the residuals of the model:
+```{r}
+plot(multi.model3, 1)
+```
+Since there are a slight convex shape it may indicate that there are some non-linearity in the data.
+
+
+#### Section F
+The histogram of the residues of the chosen multiple regression model is shown below:
+```{r}
+resid.multi <- multi.model3$residuals 
+hist(resid.multi, main = "Histogram of residuals", xlab = "Residuals", 
+     ylab = "Frequency", probability = T)
+lines(density(resid.multi), col = "navy")
+skew(resid.multi)
+```
+The histogram may look like a normal distribution. In addition, its skewness is relatively low (lesser than 1), so it is quite symmetrical.
+
+
+#### Section G
+
+The following *prediction* dataframe contains the result of applying the prediction() function to the data in the dataframe *test*. It also contains the real response variable *PTS* stored in *test*.
+
+```{r}
+prediction <- data.frame("PTS.real" = test$PTS, "PTS.predicted" = predict(multi.model3, test))
+prediction
+```
+To obtain the number of predictions that match exactly with the real value, the predicted values have been rounded to integer, although the comparison has to be done with the real values (as mentioned by professor):
+```{r}
+match <- filter(prediction, PTS.real == round(PTS.predicted, digits = 0))
+length(match$PTS.real)
+```
+
+
+#### Section H
+
+The residuals values have been calculated and stored in the *prediction* dataframe
+
+```{r}
+residuals <- c()
+
+for (i in 1:length(prediction$PTS.real)) {
+  residuals[i] <- prediction$PTS.real[i] - prediction$PTS.predicted[i]
+}
+
+prediction <- cbind(prediction, residuals)
+prediction
+```
+##### Residuals Sum of Squares **RSS**:
+```{r}
+rss <- sum((prediction$residuals)^2)
+rss
+```
+##### Total Sum of Squares **TSS**:
+
+```{r}
+tss <- sum((prediction$PTS.real - mean(prediction$PTS.real))^2)
+tss
+```
+
+##### **F-statistic**:
+```{r}
+q <- 2 #number of predictors used in my model 
+p <- dim(train)[2] - 1 #number of explicative variables in train dataframe (not response variable)
+n <- dim(train)[1]
+
+F.pred <- ((tss - rss)/q) / (rss/(n-p-1))
+F.pred
+```
+
+Therefore, the alternate hypothesis (H1) is true.
+
+##### Residual Standard Error **RSE**:
+```{r}
+rse <- sqrt((1/(n - p - 1)) * rss)
+rse
+```
+
+
+
+
