@@ -1,0 +1,105 @@
+---
+title: "Cluster analysis - Juan Luis Polo"
+output: html_notebook
+---
+
+Importing dataset *buddymove_holidayiq.csv*.
+```{r}
+buddymove.df <- read.csv("buddymove_holidayiq.csv")
+
+head(buddymove.df)
+summary(buddymove.df)
+str(buddymove.df)
+```
+
+#### Part A
+
+Scaling the attributes in the dataset, since it is a prerrequisite to run k-means algorithm later. Function *scale* set attribute type to numeric, which is another prerrequiasite for running a kmeans algorithm.
+```{r}
+bm.scaled <- scale(buddymove.df[,-1])
+```
+
+
+In order to study to optimal number of clusters, fviz_nbclust function has been used, which plots the total within-cluster sum of squares (wss).
+```{r}
+library(cluster)
+library(factoextra)
+fviz_nbclust(bm.scaled, kmeans, method="wss")
+```
+In the above figure (WSS elbow), it can be observed that the values of TWSS get stable after 7 clusters. 
+
+#### Part B
+
+Function *fviz_cluster* will has been used to visualize the result of K-Means in a 2 dimention plot. It has been tested for the following number of clusters: 7, 8, 9.
+```{r}
+set.seed(1122)
+kmeans.7 <- kmeans(bm.scaled, centers = 7, nstart = 50)
+kmeans.8 <- kmeans(bm.scaled, centers = 8, nstart = 50)
+kmeans.9 <- kmeans(bm.scaled, centers = 9, nstart = 50)
+bm.cluster7 <- fviz_cluster(kmeans.7, bm.scaled)
+bm.cluster8 <- fviz_cluster(kmeans.8, bm.scaled)
+bm.cluster9 <- fviz_cluster(kmeans.9, bm.scaled)
+bm.cluster7
+bm.cluster8
+bm.cluster9
+```
+Function fviz_cluster() runs a PCA of the dataset in order to shown a 2-D plot of the clusters. It can be noticed that the two selected variables explain the 54.6% and 28.1% of the variance in the data respectively. The sum of the variance explained by both variables is very high, which means that this graph collects much of the information from the model.
+
+Taking into account the WSS represented in Part A, and the plots in this Part, it has been chosen to study the following Parts for 8 clusters
+
+#### Part C
+
+Calculating the number of observations in each cluster por the 8-cluster configuration. The number of observations for each cluster are showed in decreasing order:
+```{r}
+cat("Number of observations in each cluster: ", kmeans.8$size, "\n")
+cat("Number of observations in each cluster sorted in decreasing order: ", 
+    sort(kmeans.8$size, decreasing = T), "\n")
+
+```
+
+#### Part D
+
+Obtaining the total SSE of the selected clusters:
+```{r}
+kmeans.8$tot.withinss
+```
+
+
+#### Part E
+
+Obtaining the SSE of each cluster:
+```{r}
+kmeans.8$withinss
+```
+
+#### Part F
+
+Defining a list with the information of each cluster:
+```{r}
+clusters <- list()
+
+for (i in 1:8) {
+  clusters[[i]] <- bm.scaled[which(kmeans.8$cluster==i), ]
+}
+```
+
+Plotting the boxplots for each cluster:
+```{r}
+for (i in 1:8) {
+  boxplot(clusters[[i]], ylim=c(-2, 3))
+  dim(clusters[[i]])[1]
+}
+
+```
+
+Some conclusions about the clusters:
+
+ + Cluster 1: as it can be seen in the boxplot of cluster #1, the variables with more reviews and a more uniform IQR are Religious and Shopping. This means that users belonging to this cluster like religious themes and nature.
+ 
+ + Cluster 4: the users belonging to this cluster have very similiar hobbies than users in cluster #1: religious theme and nature.
+ 
+ + Cluster 5: it can be seen that the users who belong to this cluster have similar tastes: they like nature, picnics and sports.
+ 
+ + Cluster 6: it can be seen that the users who belong to this cluster likes theater.
+ 
+ + Cluster 7: this users like: sports, nature and theater.
