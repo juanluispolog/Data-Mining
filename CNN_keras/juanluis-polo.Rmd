@@ -1,0 +1,302 @@
+---
+title: "CNN - Juan Luis Polo"
+output: 
+  html_notebook:
+  toc: yes
+toc_float: yes
+---
+
+```{r}
+library(keras)
+library(dplyr)
+library(caret)
+
+rm(list=ls())
+
+# Set working directory as needed
+setwd("/Users/juanluispolog/Google Drive/CS422/homework3")
+
+df <- read.csv("activity-small.csv")
+str(df)
+
+# Seed the PRNG
+set.seed(1122)
+
+label <- df$label
+df$label <- NULL
+df <- as.data.frame(scale(df))
+df$label <- label
+rm(label)
+```
+
+
+#### Part A
+```{r}
+set.seed(1122)
+index <- sample(1:nrow(df), 0.80*nrow(df))
+train.df  <- df[index, ]
+test.df <- df[-index, ]
+
+X_train <- train.df[, -4]
+y_train <- train.df$label
+```
+
+
+One Hot Encoding for the categorical variable:
+```{r}
+y_train.ohe <- to_categorical(y_train)
+
+X_test <- test.df[, -4]
+y_test <- test.df$label
+y_test.ohe <- to_categorical(test.df$label)
+```
+
+Creating the shallow neural network (1 hidden layer) with activation funtion **RelU**:
+```{r}
+model <- keras_model_sequential() %>%
+  layer_dense(units = 10, activation="relu", input_shape=c(3)) %>%
+  layer_dense(units = 4, activation="softmax")
+
+model %>% 
+  compile(loss = "categorical_crossentropy", optimizer="adam", 
+          metrics=c("accuracy"))
+
+model %>% fit(
+  data.matrix(X_train), 
+  y_train.ohe,
+  epochs=100,
+  batch_size=1,
+  validation_split=0.20,
+  verbose = 0
+)
+```
+
+##### Part A - I and II
+
+Although different neural networks have been created for different activation functions, it will use the neural network with RelU for the next validation:
+
+Evaluating model accuracy:
+```{r}
+model %>% evaluate(as.matrix(X_test), y_test.ohe, verbose = 0)
+
+pred.class  <- model %>% predict_classes(as.matrix(X_test))
+pred.prob   <- model %>% predict(as.matrix(X_test)) %>% round(3)
+
+shallow.CM <- confusionMatrix(as.factor(y_test), as.factor(pred.class))
+
+cat("Accuracy:", shallow.CM$overall[1], "\n")
+cat("Sensitivity:", shallow.CM$byClass[,1], "\n")
+cat("Specificity:", shallow.CM$byClass[,2], "\n")
+cat("Balanced Accuracy:", shallow.CM$byClass[,11], "\n")
+```
+
+Conclusions
+
+ + Overall accuracy is acceptable
+ + Sensitivity is pretty large for classes 0 and 2, and it is a little low for classes 1 and two. It could be due to the unbalance in these classes.
+ + Specifitity is pretty high for the fourth classes.
+ + The lowest balance accuracy corresponds to classes 1 and 3, and it is because these classes are unbalanced.
+
+
+
+##### Part B
+
+Creating neural networks of different batch sizes. In this process, some information about the accuracy of each network is gathered to evaluate it in the following part of the exercise.
+
+```{r}
+batch.sizes <- c(1, 32, 64, 128, 256)
+time <- c()
+accuracy.list <- list() 
+sens.list <- list() 
+spec.list <- list() 
+balance.list <- list()
+CM.list <-list()
+n <- 1
+
+for (i in batch.sizes) {
+
+  begin <- Sys.time()
+  
+    model %>% fit(
+    data.matrix(X_train),
+    y_train.ohe,
+    epochs = 100,
+    batch_size = i,
+    verbose=0
+  )
+
+  end <- Sys.time()
+
+  time[n] <- begin - end
+  
+  model %>% evaluate(as.matrix(X_test), y_test.ohe, verbose = 0)
+
+  pred.class  <- model %>% predict_classes(as.matrix(X_test))
+  pred.prob   <- model %>% predict(as.matrix(X_test)) %>% round(3)
+
+  CM.list[[n]] <- confusionMatrix(as.factor(y_test), as.factor(pred.class))
+  
+  accuracy.list[[n]] <- CM.list[[n]]$overall[1]
+  sens.list[[n]] <- CM.list[[n]]$byClass[,1]
+  spec.list[[n]] <- CM.list[[n]]$byClass[,2]
+  balance.list[[n]] <- CM.list[[n]]$byClass[,11]
+
+  n <- n+1
+}
+```
+
+
+#### Part C - I and II
+
+With respect to the **overall accuracy** of the neural networks:
+```{r}
+for (i in 1:5) {
+  cat("Overall accuracy for neural network with ", batch.sizes[i], "is: ", accuracy.list[[i]],"\n")
+}
+```
+
+The max overall accuracy corresponds with the neural network with bacth = 1 (0.77).
+
+
+With respect to the **sensitivity** of the neural networks:
+```{r}
+for (i in 1:5) {
+  cat("Overall accuracy for neural network with ", batch.sizes[i], "is: ", sens.list[[i]],"\n")
+}
+```
+The Sensitivity of batch size 32-256 neural networks is very similar. In general terms, the neural network that presents the best sensitivity in its classes is the neural network with bacth = 1.
+
+
+With respect to the **specificity** of the neural networks:
+```{r}
+for (i in 1:5) {
+  cat("Overall accuracy for neural network with ", batch.sizes[i], "is: ", spec.list[[i]],"\n")
+}
+```
+The Specificity of batch size 32-256 neural networks is very similar.Taking into account the specificity, the neural network that presents the best specificity in its classes is the neural network with bacth = 1.
+
+With respect to the **balanced accuracy** of the neural networks:
+```{r}
+for (i in 1:5) {
+  cat("Overall accuracy for neural network with ", batch.sizes[i], "is: ", balance.list[[i]],"\n")
+}
+```
+The Balanced Accuracy of batch size 32-256 neural networks is very similar. In general terms, the neural network that presents the best sensitivity in its classes is the neural network with batch = 1.
+
+
+#### Part D- I and II
+
+Regarding the results of the previous Part C, the best layer will be the one with batch size = 1. Creating the neural network with two hidden layers and with activation funtion **RelU**:
+```{r}
+model2 <- keras_model_sequential() %>%
+  layer_dense(units = 8, activation="relu", input_shape=c(3)) %>%
+  layer_dense(units = 10, activation="relu", input_shape=c(3)) %>%
+  layer_dense(units = 4, activation="softmax")
+
+model2 %>% 
+  compile(loss = "categorical_crossentropy", optimizer="adam", 
+          metrics=c("accuracy"))
+
+model2 %>% fit(
+  data.matrix(X_train), 
+  y_train.ohe,
+  epochs=100,
+  batch_size=32,
+  verbose = 0
+)
+```
+
+A first layer has been defined with 8 neurons and a second layer with 10 neurons. Next, the performance of this neural network is studied:
+Evaluating model accuracy:
+```{r}
+model2 %>% evaluate(as.matrix(X_test), y_test.ohe, verbose = 0)
+
+pred.class  <- model2 %>% predict_classes(as.matrix(X_test))
+pred.prob   <- model2 %>% predict(as.matrix(X_test)) %>% round(3)
+
+shallow.CM2 <- confusionMatrix(as.factor(y_test), as.factor(pred.class))
+
+cat("Accuracy:", shallow.CM2$overall[1], "\n")
+cat("Sensitivity:", shallow.CM2$byClass[,1], "\n")
+cat("Specificity:", shallow.CM2$byClass[,2], "\n")
+cat("Balanced Accuracy:", shallow.CM2$byClass[,11], "\n")
+```
+
+Changing the number of neurons of the neural network in order to determine the best possible conmibation of layers. The following neural network has been defined with 10 neurons and a second layer with 10 neurons, both of them with an activation function RelU.
+```{r}
+model3 <- keras_model_sequential() %>%
+  layer_dense(units = 10, activation="relu", input_shape=c(3)) %>%
+  layer_dense(units = 10, activation="relu", input_shape=c(3)) %>%
+  layer_dense(units = 4, activation="softmax")
+
+model3 %>% 
+  compile(loss = "categorical_crossentropy", optimizer="adam", 
+          metrics=c("accuracy"))
+
+model3 %>% fit(
+  data.matrix(X_train), 
+  y_train.ohe,
+  epochs=100,
+  batch_size=32,
+  verbose = 0
+)
+```
+
+Evaluating model accuracy:
+```{r}
+model3 %>% evaluate(as.matrix(X_test), y_test.ohe, verbose = 0)
+
+pred.class  <- model3 %>% predict_classes(as.matrix(X_test))
+pred.prob   <- model3 %>% predict(as.matrix(X_test)) %>% round(3)
+
+shallow.CM3 <- confusionMatrix(as.factor(y_test), as.factor(pred.class))
+
+cat("Accuracy:", shallow.CM3$overall[1], "\n")
+cat("Sensitivity:", shallow.CM3$byClass[,1], "\n")
+cat("Specificity:", shallow.CM3$byClass[,2], "\n")
+cat("Balanced Accuracy:", shallow.CM3$byClass[,11], "\n")
+```
+
+With this new hidden layes, the overall accuracy of the neural network is better than the accuracy of the shallow neural network that was previously defined. Parameters such as sensitivity, specificity and balanced accuracy are better too for this 2-layer neural network.
+
+
+Now, let's change the activation function for neurons in both layers. The following neural network has been defined with 10 neurons and a second layer with 10 neurons, both of them with an activation function Tanh.
+```{r}
+model4 <- keras_model_sequential() %>%
+  layer_dense(units = 10, activation="tanh", input_shape=c(3)) %>%
+  layer_dense(units = 10, activation="tanh", input_shape=c(3)) %>%
+  layer_dense(units = 4, activation="softmax")
+
+model4 %>% 
+  compile(loss = "categorical_crossentropy", optimizer="adam", 
+          metrics=c("accuracy"))
+
+model4 %>% fit(
+  data.matrix(X_train), 
+  y_train.ohe,
+  epochs=100,
+  batch_size=32,
+  verbose = 0
+)
+```
+
+Evaluating model accuracy:
+```{r}
+model4 %>% evaluate(as.matrix(X_test), y_test.ohe, verbose = 0)
+
+pred.class  <- model4 %>% predict_classes(as.matrix(X_test))
+pred.prob   <- model4 %>% predict(as.matrix(X_test)) %>% round(3)
+
+shallow.CM4 <- confusionMatrix(as.factor(y_test), as.factor(pred.class))
+
+cat("Accuracy:", shallow.CM4$overall[1], "\n")
+cat("Sensitivity:", shallow.CM4$byClass[,1], "\n")
+cat("Specificity:", shallow.CM4$byClass[,2], "\n")
+cat("Balanced Accuracy:", shallow.CM4$byClass[,11], "\n")
+```
+
+This new neural network presents a better performance than the first neural network. However, the parameters indicate that it performs worse than the two-layer neural network with RelU activation function.
+
+
+In conclusion, we choose the neural network with two hidden layers and activation function RelU.
+
