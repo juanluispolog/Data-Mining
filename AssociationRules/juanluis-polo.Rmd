@@ -1,0 +1,239 @@
+---
+title: "Association Rules - Juan Luis Polo"
+output: html_notebook
+---
+
+### Part A
+
+Importing the datasets:
+```{r}
+products <- read.csv("products.csv", header = F)
+columns <- c("id", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8")
+tr.1k <- read.csv("tr-1k.csv", header = F, col.names = columns)
+tr.5k <- read.csv("tr-5k.csv", header = F, col.names = columns)
+tr.20k <- read.csv("tr-20k.csv", header = F, col.names = columns)
+tr.75k <- read.csv("tr-75k.csv", header = F, col.names = columns)
+```
+
+The following code cleans the datasets and creates the canonical csv:
+```{r}
+library(plyr)
+
+tr.1k.canonical <- data.frame(matrix(nrow = dim(tr.1k)[1]))
+tr.5k.canonical <- data.frame(matrix(nrow = dim(tr.5k)[1]))
+tr.20k.canonical <- data.frame(matrix(nrow = dim(tr.20k)[1]))
+tr.75k.canonical <- data.frame(matrix(nrow = dim(tr.75k)[1]))
+
+for (i in 2:dim(tr.1k)[2]) { 
+  match.tr.1k <- match(tr.1k[1:dim(tr.1k)[1], i], products$V1)
+  new.col <- as.vector(products[match.tr.1k,2])
+  tr.1k.canonical <- cbind(tr.1k.canonical, new.col)
+}
+tr.1k.canonical <- tr.1k.canonical[,-1]
+write.table(tr.1k.canonical,file = "tr-1k-canonical.csv", row.names = F, 
+            col.names=F, na = "", sep = ",")
+
+for (i in 2:dim(tr.5k)[2]) { 
+  match.tr.5k <- match(tr.5k[1:dim(tr.5k)[1], i], products$V1)
+  new.col <- as.vector(products[match.tr.5k,2])
+  tr.5k.canonical <- cbind(tr.5k.canonical, new.col)
+}
+tr.5k.canonical <- tr.5k.canonical[,-1]
+write.table(tr.5k.canonical,file = "tr-5k-canonical.csv", row.names = F,
+            col.names = F, na = "", sep = ",")
+
+for (i in 2:dim(tr.20k)[2]) { 
+  match.tr.20k <- match(tr.20k[1:dim(tr.20k)[1], i], products$V1)
+  new.col <- as.vector(products[match.tr.20k,2])
+  tr.20k.canonical <- cbind(tr.20k.canonical, new.col)
+}
+tr.20k.canonical <- tr.20k.canonical[,-1]
+write.table(tr.20k.canonical,file = "tr-20k-canonical.csv", row.names = F,
+            col.names = F, na = "", sep = ",")
+
+
+for (i in 2:dim(tr.75k)[2]) { 
+  match.tr.75k <- match(tr.75k[1:dim(tr.75k)[1], i], products$V1)
+  new.col <- as.vector(products[match.tr.75k,2])
+  tr.75k.canonical <- cbind(tr.75k.canonical, new.col)
+}
+tr.75k.canonical <- tr.75k.canonical[,-1]
+write.table(tr.75k.canonical,file = "tr-75k-canonical.csv", row.names = F,
+            col.names = F, na = "", sep = ",")
+```
+
+### Part B
+
+Importing transactions datasets as **transactions dataframes**:
+```{r}
+library(arules)
+library(arulesViz)
+
+trans.1k <- read.transactions("tr-1k-canonical.csv", sep=",")
+trans.5k <- read.transactions("tr-5k-canonical.csv", sep=",")
+trans.20k <- read.transactions("tr-20k-canonical.csv", sep=",")
+trans.75k <- read.transactions("tr-75k-canonical.csv", sep=",")
+```
+
+
+```{r}
+inspect(trans.1k[1:3])
+```
+
+
+#### Dataset 1K
+Obtaining the *frequent itemsets* with a *minsup* of 0.01, 0.05 and 0.1:
+```{r}
+trans.1k.freq <- apriori(trans.1k, 
+                     parameter=list(support=0.01, target="frequent itemsets"))
+inspect(head(sort(trans.1k.freq, decreasing = T, by="count")))
+
+trans.1k.freq <- apriori(trans.1k, 
+                     parameter=list(support=0.05, target="frequent itemsets"))
+inspect(head(sort(trans.1k.freq, decreasing = T, by="count")))
+
+trans.1k.freq <- apriori(trans.1k, 
+                     parameter=list(support=0.1, target="frequent itemsets"))
+inspect(head(sort(trans.1k.freq, decreasing = T, by="count")))
+```
+There are 132 itemsets that have a support greater than 0.01, 42 itemsets with a support of 0.05 and 3 itemsets with a support greater than 0.1. 
+
+Obtaining the *association rules* between among the frequent itemsets:
+```{r}
+rules.1k <- apriori(trans.1k)
+```
+
+Since the *minsup* and *minconf* are set too high by default (0.1 and 0.8), there are no association rules. By reducing the value of *minsup* to 0.01 and *minconf* to 0.75, we can obtain 86 association rules:
+```{r}
+rules.1k <- apriori(trans.1k, parameter = list(confidence= 0.75, support=0.01))
+inspect(head(rules.1k))
+```
+
+
+#### Dataset 5K
+
+Obtaining the **frequent itemsets** with a *minsup* of 0.01, 0.05 and 0.1:
+```{r}
+trans.5k.freq <- apriori(trans.5k, 
+                     parameter=list(support=0.01, target="frequent itemsets"))
+inspect(head(sort(trans.5k.freq, decreasing = T, by="count")))
+
+trans.5k.freq <- apriori(trans.5k, 
+                     parameter=list(support=0.05, target="frequent itemsets"))
+inspect(head(sort(trans.5k.freq, decreasing = T, by="count")))
+
+trans.5k.freq <- apriori(trans.5k, 
+                     parameter=list(support=0.1, target="frequent itemsets"))
+inspect(head(sort(trans.5k.freq, decreasing = T, by="count")))
+```
+There are 124 itemsets that have a support greater than 0.01, 39 itemsets with a support of 0.05 and 2 itemsets with a support greater than 0.1. 
+
+Obtaining the *association rules* between among the frequent itemsets:
+```{r}
+rules.5k <- apriori(trans.5k)
+```
+
+Since the *minsup* and *minconf* are set too high by default (0.1 and 0.8), there are no association rules. By reducing the value of *minsup* to 0.01 and *minconf* to 0.75, we can obtain 95 association rules:
+```{r}
+rules.5k <- apriori(trans.5k, parameter = list(confidence= 0.75, support=0.01))
+inspect(head(rules.5k))
+```
+
+
+#### Dataset 20K
+
+Obtaining the **frequent itemsets** with a *minsup* of 0.01, 0.05 and 0.1:
+```{r}
+trans.20k.freq <- apriori(trans.20k, 
+                     parameter=list(support=0.01, target="frequent itemsets"))
+inspect(head(sort(trans.20k.freq, decreasing = T, by="count")))
+
+trans.20k.freq <- apriori(trans.20k, 
+                     parameter=list(support=0.05, target="frequent itemsets"))
+inspect(head(sort(trans.20k.freq, decreasing = T, by="count")))
+
+trans.20k.freq <- apriori(trans.20k, 
+                     parameter=list(support=0.1, target="frequent itemsets"))
+inspect(head(sort(trans.20k.freq, decreasing = T, by="count")))
+```
+
+There are 124 itemsets that have a support greater than 0.05, 39 itemsets with a support of 0.05 and 2 itemsets with a support greater than 0.1. 
+
+Obtaining the *association rules* between among the frequent itemsets:
+```{r}
+rules.20k <- apriori(trans.20k)
+```
+
+Since the *minsup* and *minconf* are set too high by default (0.1 and 0.8), there are no association rules. By reducing the value of *minsup* to 0.01 and *minconf* to 0.75, we can obtain 94 association rules:
+```{r}
+rules.20k <- apriori(trans.20k, parameter = list(confidence= 0.75, support=0.01))
+inspect(head(rules.20k))
+```
+
+
+#### Dataset 75K
+
+Obtaining the **frequent itemsets** with a *minsup* of 0.01, 0.05 and 0.1:
+```{r}
+trans.75k.freq <- apriori(trans.75k, 
+                     parameter=list(support=0.01, target="frequent itemsets"))
+inspect(head(sort(trans.75k.freq, decreasing = T, by="count")))
+
+trans.75k.freq <- apriori(trans.75k, 
+                     parameter=list(support=0.05, target="frequent itemsets"))
+inspect(head(sort(trans.75k.freq, decreasing = T, by="count")))
+
+trans.75k.freq <- apriori(trans.75k, 
+                     parameter=list(support=0.1, target="frequent itemsets"))
+inspect(head(sort(trans.75k.freq, decreasing = T, by="count")))
+```
+
+There are 124 itemsets that have a support greater than 0.01, 40 itemsets with a support of 0.05 and 3 itemsets with a support greater than 0.1. 
+
+Obtaining the *association rules* between among the frequent itemsets:
+```{r}
+rules.75k <- apriori(trans.75k)
+```
+
+Since the *minsup* and *minconf* are set too high by default (0.1 and 0.8), there are no association rules. By reducing the value of *minsup* to 0.01 and *minconf* to 0.75, we can obtain **93 association rules**:
+```{r}
+rules.75k <- apriori(trans.75k, parameter = list(confidence= 0.75, support=0.01))
+inspect(head(rules.75k))
+```
+
+
+#### Part C
+
+In conclusion, for a minimum confidence of 0.75 and a minimum support of 0.01, the following association rules have been obtained:
+
++ Dataset 1000 transactions: 86 rules.
++ Dataset 5000 transactions: 95 rules.
++ Dataset 20000 transactions: 94 rules.
++ Dataset 75000 transactions: 93 rules.
+
+The following plots show the confidence and support of the association rules that have been obtained for the different itemsets.
+```{r}
+plot(rules.1k, engine="htmlwidget", jitter = 0)
+plot(rules.5k, engine="htmlwidget", jitter = 0)
+plot(rules.20k, engine="htmlwidget", jitter = 0)
+plot(rules.75k, engine="htmlwidget", jitter = 0)
+```
+
+As the number of processed transactions increases, the confidence and support of the originally obtained rules increases too. This can be observed in the plots.
+
+It can be noticed the number of transactions is not directly related to the number of association rules that can be obtained.
+
+In addition, as the number of transactions increases, the data is grouped into groups according to items. You can see that the flavors of many foods are related, and that the rules of association make sense.
+
+
+### Part D
+
+Most frequently purchased item/itemset:
+```{r}
+inspect(head(trans.75k.freq))
+```
+
+Least frequently purchased item/itemset:
+```{r}
+inspect(tail(trans.75k.freq))
+```
